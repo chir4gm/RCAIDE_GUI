@@ -184,7 +184,10 @@ class DataEntryWidget(QWidget):
         return data
 
     def load_data(self, data):
-        for i, label in enumerate(self.data_fields.keys()):
+        for i, label in enumerate(data.keys()):
+            if label not in self.data_fields.keys():
+                continue
+
             if self.data_units_labels[i][1] == Units.Boolean:
                 self.data_fields[label].setChecked(data[label][0])
             elif self.data_units_labels[i][1] == Units.Position:
