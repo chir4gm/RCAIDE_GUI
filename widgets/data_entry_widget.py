@@ -111,96 +111,83 @@ class DataEntryWidget(QWidget):
             else:
                 self.data_fields[key][0].setText("")
                 self.data_fields[key][1].set_index(0)
-
-    def get_values(self):
+    def get_values(self, convert_to_si=False):
         data = {}
         for i, label in enumerate(self.data_fields.keys()):
-            # Find corresponding unit
             if self.data_units_labels[i][1] == Units.Boolean:
                 data_field = self.data_fields[label]
                 data[label] = (data_field.isChecked(), 0)
             elif self.data_units_labels[i][1] == Units.Position:
                 data_field = self.data_fields[label]
-                x_line_edit, y_line_edit, z_line_edit, unit_picker = data_field
-
-                x_value = float(x_line_edit.text()
-                                ) if x_line_edit.text() else 0.0
-                y_value = float(y_line_edit.text()
-                                ) if y_line_edit.text() else 0.0
-                z_value = float(z_line_edit.text()
-                                ) if z_line_edit.text() else 0.0
-
-                data[label] = [[x_value, y_value,
-                               z_value]], unit_picker.current_index
+                # Unpack the data entries
+                *new_data, unit_picker = data_field
+                values = [float(field.text()) if field.text() else None for field in new_data]
+                
+                if label in data:
+                    curr_data, _ = data[label]
+                    curr_data = curr_data[0]
+                    values = [val if val is not None else curr_data[i] for i, val in enumerate(values)]
+                
+                if convert_to_si:
+                    values = [unit_picker.apply_unit(val) if val is not None else None for val in values]
+                
+                data[label] = [values], unit_picker.current_index
             elif self.data_units_labels[i][1] == Units.Heading:
                 continue
             elif self.data_units_labels[i][1] == Units.Count:
                 data_field = self.data_fields[label]
                 line_edit, unit_picker = data_field
-                value = int(line_edit.text()) if line_edit.text() else 0
+                if label in data:
+                    curr_value, _ = data[label]
+                    value = curr_value if (curr_value and not line_edit.text()) else (
+                        int(line_edit.text()) if line_edit.text() else 0
+                    )
+                else:
+                    value = int(line_edit.text()) if line_edit.text() else 0
                 data[label] = value, unit_picker.current_index
             else:
                 data_field = self.data_fields[label]
                 line_edit, unit_picker = data_field
-                value = float(line_edit.text()) if line_edit.text() else 0.0
+                value = None
+                if label in data:
+                    curr_value, _ = data[label]
+                    value = curr_value if (curr_value and not line_edit.text()) else (
+                        float(line_edit.text()) if line_edit.text() else None
+                    )
+                else:
+                    value = float(line_edit.text()) if line_edit.text() else None
+                    
+                if convert_to_si and value is not None:
+                    value = unit_picker.apply_unit(value)
+                    
                 data[label] = value, unit_picker.current_index
         return data
 
     def get_values_si(self):
-        data = {}
-        for i, label in enumerate(self.data_fields.keys()):
-            if self.data_units_labels[i][1] == Units.Boolean:
-                data_field = self.data_fields[label]
-                data[label] = (data_field.isChecked(), 0)
-            elif self.data_units_labels[i][1] == Units.Position:
-                data_field = self.data_fields[label]
-                x_line_edit, y_line_edit, z_line_edit, unit_picker = data_field
-
-                x_value = float(x_line_edit.text()
-                                ) if x_line_edit.text() else 0.0
-                y_value = float(y_line_edit.text()
-                                ) if y_line_edit.text() else 0.0
-                z_value = float(z_line_edit.text()
-                                ) if z_line_edit.text() else 0.0
-
-                x_value, y_value, z_value = unit_picker.apply_unit(
-                    x_value), unit_picker.apply_unit(y_value), unit_picker.apply_unit(z_value)
-
-                data[label] = [[x_value, y_value,
-                               z_value]], unit_picker.current_index
-            elif self.data_units_labels[i][1] == Units.Heading:
-                continue
-            elif self.data_units_labels[i][1] == Units.Count:
-                data_field = self.data_fields[label]
-                line_edit, unit_picker = data_field
-                value = int(line_edit.text()) if line_edit.text() else 0
-                data[label] = value, unit_picker.current_index
-            else:
-                data_field = self.data_fields[label]
-                line_edit, unit_picker = data_field
-                value = float(line_edit.text()) if line_edit.text() else 0.0
-                data[label] = unit_picker.apply_unit(
-                    value), unit_picker.current_index
-        return data
+        return self.get_values(convert_to_si=True)
 
     def load_data(self, data):
-        for i, label in enumerate(self.data_fields.keys()):
+        for i, label in enumerate(data.keys()):
+            if label not in self.data_fields.keys():
+                continue
+
             if self.data_units_labels[i][1] == Units.Boolean:
                 self.data_fields[label].setChecked(data[label][0])
             elif self.data_units_labels[i][1] == Units.Position:
                 x_line_edit, y_line_edit, z_line_edit, unit_picker = self.data_fields[label]
                 value, index = data[label]
                 value = value[0]
-                x_line_edit.setText(str(value[0]))
-                y_line_edit.setText(str(value[1]))
-                z_line_edit.setText(str(value[2]))
+                x_line_edit.setText(str(value[0]) if value[0] else "")
+                y_line_edit.setText(str(value[1]) if value[1] else "")
+                z_line_edit.setText(str(value[2]) if value[2] else "")
                 unit_picker.set_index(index)
             elif self.data_units_labels[i][1] == Units.Heading:
                 pass
             else:
                 line_edit, unit_picker = self.data_fields[label]
                 value, index = data[label]
-                line_edit.setText(str(value))
+                if value:
+                    line_edit.setText(str(value))
                 unit_picker.set_index(index)
     
     # TODO implement mark_save and changed_since_save
